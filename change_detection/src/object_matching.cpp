@@ -14,19 +14,20 @@ Eigen::Vector3f rgb2lab(const Eigen::Vector3i &rgb) {
 }
 
 ObjectMatching::ObjectMatching(std::vector<DetectedObject> model_vec, std::vector<DetectedObject> object_vec,
-                               std::string model_path, std::string cfg_path) {
+                               std::string model_path, std::string cfg_path, std::string obj_match_dir) {
     model_vec_ = model_vec;
     object_vec_ = object_vec;
     model_path_ = model_path;
     cfg_path_ = cfg_path;
 
-    boost::filesystem::path model_path_orig(model_path_);
-    cloud_matches_dir_ =  model_path_orig.remove_trailing_separator().parent_path().string() + "/matches/";
-    if (boost::filesystem::exists(cloud_matches_dir_))
-        boost::filesystem::remove_all(cloud_matches_dir_);
-
-
+    if (obj_match_dir=="") {
+        boost::filesystem::path model_path_orig(model_path_);
+        cloud_matches_dir_ =  model_path_orig.remove_trailing_separator().parent_path().string() + "/matches/";
+    } else {
+        cloud_matches_dir_ = obj_match_dir;
+    }
 }
+
 
 std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_result, std::vector<DetectedObject> &curr_result)
 {
@@ -183,7 +184,7 @@ std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_resu
             //TODO add the small_Cluster_ind to the model_cloud
 
             //if the leftover is just a plane, too small or has little volume, remove it
-            pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(model_diff_cloud, ds_leaf_size_LV);
+            pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(model_diff_cloud, ds_leaf_size_ppf);
             if (isObjectUnwanted(ds_cloud, min_object_volume, min_object_size_ds, std::numeric_limits<int>::max(), 0.01, 0.9))
                 model_diff_cloud->clear();
 
@@ -228,7 +229,7 @@ std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_resu
             //TODO add the small_Cluster_ind to the object_cloud
 
             //if the leftover is just a plane, too small or has little volume, remove it
-            ds_cloud = downsampleCloudVG(object_diff_cloud, ds_leaf_size_LV);
+            ds_cloud = downsampleCloudVG(object_diff_cloud, ds_leaf_size_ppf);
             if (isObjectUnwanted(ds_cloud, min_object_volume, min_object_size_ds, std::numeric_limits<int>::max(), 0.01, 0.9))
                 object_diff_cloud->clear();
 
@@ -283,6 +284,8 @@ std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_resu
 
             //ATTENTION: The ro_iter is invalid now because of the push_back. Vector re-allocates and invalidates pointers
             if (model_diff_cloud->size() > 0) {
+                //if more than one diff_cloud_cluster then the ro_iter is invalid for the second cluster
+                const DetectedObject ro_iter_copy = *ro_iter;
                 //the remaining part of the model
                 std::vector<int> small_cluster_ind;
                 std::vector<pcl::PointIndices> diff_cloud_cluster_ind = ObjectMatching::clusterOutliersBySize(model_diff_cloud, small_cluster_ind, 0.014, min_object_size_ds);
@@ -297,18 +300,18 @@ std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_resu
                     extract.setKeepOrganized(false);
                     extract.filter(*remaining_cluster_cloud);
 
-                    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_cluster_cloud, ds_leaf_size_LV);
+                    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_cluster_cloud, ds_leaf_size_ppf);
                     if (!isObjectUnwanted(ds_cloud, min_object_volume, min_object_size_ds, std::numeric_limits<int>::max(), 0.01, 0.9)) {
-                        DetectedObject diff_model_part(remaining_cluster_cloud, ro_iter->plane_cloud_, ro_iter->plane_coeffs_, ObjectState::REMOVED, "");
+                        DetectedObject diff_model_part(remaining_cluster_cloud, ro_iter_copy.plane_cloud_, ro_iter_copy.plane_coeffs_, ObjectState::REMOVED, "");
                         model_vec_.push_back(diff_model_part);
                     }
                 }
-//                DetectedObject diff_model_part(model_diff_cloud, ro_iter->plane_cloud_, ObjectState::REMOVED, "");
-//                model_vec_.push_back(diff_model_part);
             }
 
             //ATTENTION: The co_iter is invalid now because of the push_back. Vector re-allocates and invalidates pointers
             if (object_diff_cloud->size() > 0) {
+                //if more than one diff_cloud_cluster then the co_iter is invalid for the second cluster
+                const DetectedObject co_iter_copy = *co_iter;
                 //the remaining part of the object
                 std::vector<int> small_cluster_ind;
                 std::vector<pcl::PointIndices> diff_cloud_cluster_ind = ObjectMatching::clusterOutliersBySize(object_diff_cloud, small_cluster_ind, 0.014, min_object_size_ds);
@@ -323,14 +326,12 @@ std::vector<Match> ObjectMatching::compute(std::vector<DetectedObject> &ref_resu
                     extract.setKeepOrganized(false);
                     extract.filter(*remaining_cluster_cloud);
 
-                    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_cluster_cloud, ds_leaf_size_LV);
+                    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_cluster_cloud, ds_leaf_size_ppf);
                     if (!isObjectUnwanted(ds_cloud, min_object_volume, min_object_size_ds, std::numeric_limits<int>::max(), 0.01, 0.9)) {
-                        DetectedObject diff_object_part(remaining_cluster_cloud, co_iter->plane_cloud_, co_iter->plane_coeffs_, ObjectState::NEW, "");
+                        DetectedObject diff_object_part(remaining_cluster_cloud, co_iter_copy.plane_cloud_, co_iter_copy.plane_coeffs_, ObjectState::NEW, "");
                         object_vec_.push_back(diff_object_part);
                     }
                 }
-//                DetectedObject diff_object_part(object_diff_cloud, co_iter->plane_cloud_, ObjectState::NEW, "");
-//                object_vec_.push_back(diff_object_part);
             }
         }
 
@@ -660,7 +661,6 @@ void ObjectMatching::saveCloudResults(pcl::PointCloud<PointNormal>::ConstPtr obj
 
 
 //returns all valid clusters and indices that were removed are stored in filtered_ind
-//the input cloud does not change! make sure is_dense=false is set if nans could exist
 std::vector<pcl::PointIndices> ObjectMatching::clusterOutliersBySize(const pcl::PointCloud<PointNormal>::ConstPtr cloud, std::vector<int> &filtered_ind, float cluster_thr,
                                                                      int min_cluster_size, int max_cluster_size) {
     //clean up small things
@@ -668,24 +668,32 @@ std::vector<pcl::PointIndices> ObjectMatching::clusterOutliersBySize(const pcl::
     if (cloud->empty()) {
         return cluster_indices;
     }
+
+    pcl::PointCloud<PointNormal>::Ptr cloud_copy(new pcl::PointCloud<PointNormal>);
+    pcl::copyPointCloud(*cloud, *cloud_copy);
+    cloud_copy->is_dense = false;
+
     //check if cloud only consists of nans
     std::vector<int> nan_ind;
     pcl::PointCloud<PointNormal>::Ptr no_nans_cloud(new pcl::PointCloud<PointNormal>);
-    pcl::removeNaNFromPointCloud(*cloud, *no_nans_cloud, nan_ind);
+    pcl::removeNaNFromPointCloud(*cloud_copy, *no_nans_cloud, nan_ind);
     if (no_nans_cloud->size() == 0) {
         return cluster_indices;
-    }
-
-    pcl::search::KdTree<PointNormal>::Ptr tree (new pcl::search::KdTree<PointNormal>);
-    tree->setInputCloud (cloud);
+    } 
 
     pcl::EuclideanClusterExtraction<PointNormal> ec;
     ec.setClusterTolerance (cluster_thr);
     ec.setMinClusterSize (min_cluster_size);
     ec.setMaxClusterSize (max_cluster_size);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud (cloud);
+    ec.setInputCloud (no_nans_cloud);
     ec.extract (cluster_indices);
+
+    //transform back to original indices
+    for (pcl::PointIndices &ind : cluster_indices) {
+        for (size_t i = 0; i < ind.indices.size(); i++) {
+            ind.indices[i] = nan_ind[ind.indices[i]];
+        }
+    }
 
     //extract the indices that got filtered
     std::vector<int> cluster_ind;
@@ -906,7 +914,7 @@ void ObjectMatching::matchedPartGrowing(pcl::PointCloud<PointNormal>::ConstPtr o
     extract.setKeepOrganized(false);
     extract.filter(*remaining_part);
 
-    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_part, ds_leaf_size_LV);
+    pcl::PointCloud<PointNormal>::Ptr ds_cloud = downsampleCloudVG(remaining_part, ds_leaf_size_ppf);
     if (!remaining_part->empty() && isObjectUnwanted(ds_cloud, min_object_volume, min_object_size_ds, std::numeric_limits<int>::max(), 0.01, 0.9)) {
         pcl::copyPointCloud(*obj_cloud, *matched_part);
         remaining_part->clear();
