@@ -20,7 +20,7 @@ namespace boost
 
 namespace graph
 {
-    namespace detail_edith //maximum_weighted_matching.hpp is copied from boost version 1.75; vertex_state enum was not defined that way in boost 1.65 I'm using right now
+    namespace new_vertex_state //maximum_weighted_matching.hpp is copied from boost version 1.75; vertex_state enum was not defined that way in boost 1.65, which I'm using right now
     {
         enum VERTEX_STATE
         {
@@ -73,7 +73,7 @@ public:
             typename std::vector< T >::iterator, VertexIndexMap >
             type;
     };
-    typedef typename graph::detail_edith::VERTEX_STATE vertex_state_t;
+    typedef typename graph::new_vertex_state::VERTEX_STATE vertex_state_t;
     typedef typename graph_traits< Graph >::vertex_iterator vertex_iterator_t;
     typedef
         typename graph_traits< Graph >::vertex_descriptor vertex_descriptor_t;
@@ -352,7 +352,7 @@ public:
             old_label[*vi] = std::make_pair(label_T[*vi], outlet[*vi]);
 
         std::pair< vertex_descriptor_t, vertex_state_t > child(
-            outlet[b_base], graph::detail_edith::V_EVEN);
+            outlet[b_base], graph::new_vertex_state::V_EVEN);
         blossom_ptr_t b = in_blossom[child.first];
         for (; b->father->father != blossom_ptr_t(); b = b->father)
             ;
@@ -519,21 +519,21 @@ public:
         std::pair< vertex_descriptor_t, vertex_state_t > v,
         bool use_old = false) const
     {
-        if (v.second == graph::detail_edith::V_EVEN)
+        if (v.second == graph::new_vertex_state::V_EVEN)
         {
             // a paranoid check: label_S shoule be the same as mate in
             // backtracing
             if (label_S[v.first] == graph_traits< Graph >::null_vertex())
                 label_S[v.first] = mate[v.first];
-            return std::make_pair(label_S[v.first], graph::detail_edith::V_ODD);
+            return std::make_pair(label_S[v.first], graph::new_vertex_state::V_ODD);
         }
-        else if (v.second == graph::detail_edith::V_ODD)
+        else if (v.second == graph::new_vertex_state::V_ODD)
         {
             vertex_descriptor_t w = use_old ? old_label[v.first].first
                                             : base_vertex(label_T[v.first]);
-            return std::make_pair(w, graph::detail_edith::V_EVEN);
+            return std::make_pair(w, graph::new_vertex_state::V_EVEN);
         }
-        return std::make_pair(v.first, graph::detail_edith::V_UNREACHED);
+        return std::make_pair(v.first, graph::new_vertex_state::V_UNREACHED);
     }
 
     // backtrace from vertices v and w to their free (unmatched) ancesters,
@@ -543,9 +543,9 @@ public:
         vertex_descriptor_t& w_free_ancestor) const
     {
         std::pair< vertex_descriptor_t, vertex_state_t > v_up(
-            v, graph::detail_edith::V_EVEN);
+            v, graph::new_vertex_state::V_EVEN);
         std::pair< vertex_descriptor_t, vertex_state_t > w_up(
-            w, graph::detail_edith::V_EVEN);
+            w, graph::new_vertex_state::V_EVEN);
         vertex_descriptor_t nca;
         nca = w_free_ancestor = v_free_ancestor
             = graph_traits< Graph >::null_vertex();
@@ -592,19 +592,19 @@ public:
         vertex_descriptor_t v_prime, vertex_descriptor_t stop_vertex)
     {
         std::pair< vertex_descriptor_t, vertex_state_t > u(
-            v_prime, graph::detail_edith::V_ODD);
+            v_prime, graph::new_vertex_state::V_ODD);
         std::pair< vertex_descriptor_t, vertex_state_t > u_up(
-            w_prime, graph::detail_edith::V_EVEN);
+            w_prime, graph::new_vertex_state::V_EVEN);
 
         for (; u_up.first != stop_vertex; u = u_up, u_up = parent(u))
         {
-            if (u_up.second == graph::detail_edith::V_EVEN)
+            if (u_up.second == graph::new_vertex_state::V_EVEN)
             {
                 if (!in_top_blossom(u_up.first)->sub_blossoms.empty())
                     outlet[u_up.first] = label_T[u.first];
                 label_T[u_up.first] = outlet[u.first];
             }
-            else if (u_up.second == graph::detail_edith::V_ODD)
+            else if (u_up.second == graph::new_vertex_state::V_ODD)
                 label_S[u_up.first] = u.first;
 
             add_sub_blossom(b, u_up.first);
@@ -623,19 +623,19 @@ public:
     {
         if (v == w)
             aug_path.push_back(v);
-        else if (v_state == graph::detail_edith::V_EVEN)
+        else if (v_state == graph::new_vertex_state::V_EVEN)
         {
             aug_path.push_back(v);
-            retrieve_augmenting_path(label_S[v], w, graph::detail_edith::V_ODD);
+            retrieve_augmenting_path(label_S[v], w, graph::new_vertex_state::V_ODD);
         }
-        else if (v_state == graph::detail_edith::V_ODD)
+        else if (v_state == graph::new_vertex_state::V_ODD)
         {
             if (outlet[v] == v)
                 aug_path.push_back(v);
             else
                 reversed_retrieve_augmenting_path(
-                    outlet[v], v, graph::detail_edith::V_EVEN);
-            retrieve_augmenting_path(label_T[v], w, graph::detail_edith::V_EVEN);
+                    outlet[v], v, graph::new_vertex_state::V_EVEN);
+            retrieve_augmenting_path(label_T[v], w, graph::new_vertex_state::V_EVEN);
         }
     }
 
@@ -644,18 +644,18 @@ public:
     {
         if (v == w)
             aug_path.push_back(v);
-        else if (v_state == graph::detail_edith::V_EVEN)
+        else if (v_state == graph::new_vertex_state::V_EVEN)
         {
             reversed_retrieve_augmenting_path(
-                label_S[v], w, graph::detail_edith::V_ODD);
+                label_S[v], w, graph::new_vertex_state::V_ODD);
             aug_path.push_back(v);
         }
-        else if (v_state == graph::detail_edith::V_ODD)
+        else if (v_state == graph::new_vertex_state::V_ODD)
         {
             reversed_retrieve_augmenting_path(
-                label_T[v], w, graph::detail_edith::V_EVEN);
+                label_T[v], w, graph::new_vertex_state::V_EVEN);
             if (outlet[v] != v)
-                retrieve_augmenting_path(outlet[v], v, graph::detail_edith::V_EVEN);
+                retrieve_augmenting_path(outlet[v], v, graph::new_vertex_state::V_EVEN);
             else
                 aug_path.push_back(v);
         }
@@ -669,7 +669,7 @@ public:
         if (!is_in_blossom(b, mate[v]))
         { // if v is a new base vertex
             std::pair< vertex_descriptor_t, vertex_state_t > u(
-                v, graph::detail_edith::V_EVEN);
+                v, graph::new_vertex_state::V_EVEN);
             while (label_S[u.first] != u.first
                 && is_in_blossom(b, label_S[u.first]))
                 u = parent(u, true);
@@ -690,7 +690,7 @@ public:
                     ;
                 if (b != blossom_ptr_t())
                 {
-                    u = std::make_pair(b->get_base(), graph::detail_edith::V_ODD);
+                    u = std::make_pair(b->get_base(), graph::new_vertex_state::V_ODD);
                     while (!is_in_blossom(
                         in_blossom[v]->father, old_label[u.first].first))
                         u = parent(u, true);
@@ -703,7 +703,7 @@ public:
         { // if v is an old base vertex
             // let u be the new base vertex; backtrace from u's old T-label
             std::pair< vertex_descriptor_t, vertex_state_t > u(
-                b->get_base(), graph::detail_edith::V_ODD);
+                b->get_base(), graph::new_vertex_state::V_ODD);
             while (
                 old_label[u.first].first != graph_traits< Graph >::null_vertex()
                 && old_label[u.first].first != v)
@@ -722,8 +722,8 @@ public:
 
         // retrieve the augmenting path and put it in aug_path
         reversed_retrieve_augmenting_path(
-            v, v_free_ancestor, graph::detail_edith::V_EVEN);
-        retrieve_augmenting_path(w, w_free_ancestor, graph::detail_edith::V_EVEN);
+            v, v_free_ancestor, graph::new_vertex_state::V_EVEN);
+        retrieve_augmenting_path(w, w_free_ancestor, graph::new_vertex_state::V_EVEN);
 
         // augment the matching along aug_path
         vertex_descriptor_t a, b;

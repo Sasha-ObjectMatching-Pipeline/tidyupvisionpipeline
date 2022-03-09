@@ -1228,8 +1228,8 @@ void ChangeDetection::matchAndRemoveObjects (pcl::PointCloud<PointNormal>::Ptr r
             continue;
         }
 
-        pcl::io::savePCDFileBinary("/home/edith/Desktop/object.pcd", *object_cloud);
-        pcl::io::savePCDFileBinary("/home/edith/Desktop/remaining_cloud_crop.pcd", *remaining_cloud_crop);
+        //pcl::io::savePCDFileBinary("/home/edith/Desktop/object.pcd", *object_cloud);
+        //pcl::io::savePCDFileBinary("/home/edith/Desktop/remaining_cloud_crop.pcd", *remaining_cloud_crop);
 
         //ICP alignment
         pcl::PointCloud<PointNormal>::Ptr object_registered(new pcl::PointCloud<PointNormal>());
@@ -1245,7 +1245,7 @@ void ChangeDetection::matchAndRemoveObjects (pcl::PointCloud<PointNormal>::Ptr r
 
 
 
-        pcl::io::savePCDFileBinary("/home/edith/Desktop/object_aligned.pcd", *object_registered);
+        //pcl::io::savePCDFileBinary("/home/edith/Desktop/object_aligned.pcd", *object_registered);
 
         //check color
         v4r::apps::PPFRecognizerParameter params;
